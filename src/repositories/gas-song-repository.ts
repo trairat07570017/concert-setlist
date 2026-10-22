@@ -46,9 +46,11 @@ export class GasSongRepository implements SongRepository {
   }
 
   async updateSong(id: string, updates: Partial<SongInput>): Promise<Song> {
-    const payload = JSON.stringify({ id, updates });
-    const url = `${this.apiUrl}?action=update_song&payload=${encodeURIComponent(payload)}`;
-    await this.fetchApi<{ success: boolean; updated: boolean }>(url);
+    const payload = JSON.stringify({ action: 'update_song', id, updates });
+    await this.fetchApi<{ success: boolean; updated: boolean }>(this.apiUrl, {
+      method: 'POST',
+      body: payload
+    });
 
     const songs = await this.getSongs();
     const found = songs.find((s) => s.id === id);

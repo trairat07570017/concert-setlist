@@ -69,6 +69,48 @@ describe('GasSongRepository', () => {
     expect(result).toEqual(newSong);
   });
 
+  it('updates song via POST with action=update_song', async () => {
+    const updatedSong = {
+      id: 's1',
+      orderIndex: 0,
+      title: 'Updated Title',
+      artist: 'Artist',
+      originalKey: 'G',
+      playKey: 'G',
+      tempoBpm: 120,
+      versionUrl: '',
+      chordUrl: '',
+      chordContent: 'C G Am F',
+      notes: '',
+      updatedAt: '2026-10-22T00:00:00.000Z'
+    };
+
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, updated: true })
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, songs: [updatedSong] })
+      } as Response);
+
+    const result = await repository.updateSong('s1', { chordContent: 'C G Am F' });
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      1,
+      apiUrl,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'update_song',
+          id: 's1',
+          updates: { chordContent: 'C G Am F' }
+        })
+      })
+    );
+    expect(result).toEqual(updatedSong);
+  });
+
   it('deletes song via GET with action=delete_song&id=...', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,

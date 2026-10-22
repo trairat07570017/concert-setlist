@@ -190,8 +190,24 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
                 className="flex-1 sm:flex-initial"
               >
                 <Download className={`w-3.5 h-3.5 ${isFetchingDochord ? 'animate-bounce' : ''}`} />
-                {isFetchingDochord ? 'กำลังดึง...' : 'ดึงคอร์ดอัตโนมัติ'}
+                {isFetchingDochord ? 'กำลังดึง...' : 'ดึงคอร์ด'}
               </Button>
+
+              {chordText && (
+                <Button
+                  type="button"
+                  variant="stage"
+                  size="sm"
+                  disabled={isSaving}
+                  onClick={handleSaveChords}
+                  className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold shadow-md shadow-amber-950/30"
+                  title="บันทึกคอร์ดเพลงนี้ลง Google Sheet"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+                </Button>
+              )}
+
               {chordUrlInput && (
                 <a
                   href={chordUrlInput}
@@ -208,7 +224,11 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
         </div>
 
         {statusMessage && (
-          <div className="px-3.5 py-2.5 rounded-xl bg-amber-950/40 border border-amber-600/40 text-xs text-amber-200 leading-relaxed">
+          <div className={`px-3.5 py-2.5 rounded-xl border text-xs leading-relaxed ${
+            statusMessage.includes('เรียบร้อย') || statusMessage.includes('สำเร็จ')
+              ? 'bg-emerald-950/60 border-emerald-600/40 text-emerald-200'
+              : 'bg-amber-950/40 border-amber-600/40 text-amber-200'
+          }`}>
             {statusMessage}
           </div>
         )}
@@ -297,13 +317,14 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
               )}
             </Button>
 
-            {isEditing && (
+            {chordText && (
               <Button
                 type="button"
                 variant="stage"
                 size="sm"
                 disabled={isSaving}
                 onClick={handleSaveChords}
+                className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold"
               >
                 <Save className="w-3.5 h-3.5" />
                 {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
