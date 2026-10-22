@@ -4,11 +4,11 @@
 
 **Blocked by:** 01 (Core Domain, Repository Seam & Local Dev Scaffold)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Complete `gas/Code.gs` script implementing `doGet` and `doPost` with CORS support and JSON responses
-- [ ] Auto-initialization of Google Sheet headers (`id`, `order_index`, `title`, `artist`, `original_key`, `play_key`, `tempo_bpm`, `version_url`, `chord_url`, `chord_content`, `notes`, `updated_at`) if sheet is blank
-- [ ] Frontend `GasSongRepository` implementing `SongRepository` interface communicating with the GAS Web App
-- [ ] Handling of GAS 302 redirects in fetch calls with transparent error messaging
-- [ ] Factory function `createSongRepository()` switching between Mock and GAS repository based on environment configuration
-- [ ] Clear step-by-step documentation (`gas/README.md`) on how to deploy the Apps Script Web App and link the Google Sheet
+- [x] Complete `gas/Code.gs` script implementing `doGet` and `doPost` with CORS support and JSON responses
+- [x] Auto-initialization of Google Sheet headers (`id`, `order_index`, `title`, `artist`, `original_key`, `play_key`, `tempo_bpm`, `version_url`, `chord_url`, `chord_content`, `notes`, `updated_at`) if sheet is blank
+- [x] Frontend `GasSongRepository` implementing `SongRepository` interface communicating with the GAS Web App
+- [x] Handling of GAS 302 redirects in fetch calls with transparent error messaging
+- [x] Factory function `createSongRepository()` switching between Mock and GAS repository based on environment configuration
+- [x] Clear step-by-step documentation (`gas/README.md`) on how to deploy the Apps Script Web App and link the Google Sheet
