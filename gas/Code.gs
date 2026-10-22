@@ -1,12 +1,3 @@
-/**
- * Concert Setlist - Google Apps Script Backend Web App
- * 
- * Acts as the serverless REST API connected to Google Sheets.
- * Deploy as a Web App:
- *  - Execute as: "Me"
- *  - Who has access: "Anyone"
- */
-
 const SPREADSHEET_ID = '17jR8HlBPi4AL6o6gmvIR_f1GkRthVCY79hR04N2bdwA';
 
 const HEADERS = [
@@ -31,7 +22,7 @@ function getOrCreateSheet() {
     try {
       ss = SpreadsheetApp.openById(SPREADSHEET_ID.trim());
     } catch (e) {
-      console.warn('Could not open by ID:', e);
+      Logger.log('Could not open by ID: ' + e);
     }
   }
 
@@ -39,7 +30,7 @@ function getOrCreateSheet() {
     try {
       ss = SpreadsheetApp.getActiveSpreadsheet();
     } catch (e) {
-      console.warn('No active spreadsheet');
+      Logger.log('No active spreadsheet: ' + e);
     }
   }
 
@@ -68,42 +59,197 @@ function jsonResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function handleGetSongs(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return { success: true, songs: [] };
+  }
+
+  const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+  const songs = values.map(function(row) {
+    return {
+      id: String(row[0] || ''),
+      orderIndex: Number(row[1] || 0),
+      title: String(row[2] || ''),
+      artist: String(row[3] || ''),
+      originalKey: String(row[4] || 'C'),
+      playKey: String(row[5] || 'C'),
+      tempoBpm: row[6] ? Number(row[6]) : null,
+      versionUrl: String(row[7] || ''),
+      chordUrl: String(row[8] || ''),
+      chordContent: String(row[9] || ''),
+      notes: String(row[10] || ''),
+      updatedAt: String(row[11] || new Date().toISOString())
+    };
+  }).filter(function(s) {
+    return s.id !== '';
+  });
+
+  songs.sort(function(a, b) {
+    return a.orderIndex - b.orderIndex;
+  });
+
+  return { success: true, songs: songs };
+}
+
+function handleAddSong(sheet, song) {
+  const lastRow = sheet.getLastRow();
+  const nextIndex = lastRow <= 1 ? 0 : lastRow - 1;
+
+  const newId = song.id || ('song-' + new Date().getTime() + '-' + Math.random().toString(36).substring(2, 7));
+  const rowData = [
+    newId,
+    song.orderIndex !== undefined ? song.orderIndex : nextIndex,
+    song.title || '',
+    song.artist || '',
+    song.originalKey || 'C',
+    song.playKey || song.originalKey || 'C',
+    song.tempoBpm || '',
+    song.versionUrl || '',
+    song.chordUrl || '',
+    song.chordContent || '',
+    song.notes || '',
+    new Date().toISOString()
+  ];
+
+  sheet.appendRow(rowData);
+  return {
+    success: true,
+    song: {
+      id: newId,
+      orderIndex: rowData[1],
+      title: rowData[2],
+      artist: rowData[3],
+      originalKey: rowData[4],
+      playKey: rowData[5],
+      tempoBpm: rowData[6] ? Number(rowData[6]) : null,
+      versionUrl: rowData[7],
+      chordUrl: rowData[8],
+      chordContent: rowData[9],
+      notes: rowData[10],
+      updatedAt: rowData[11]
+    }
+  };
+}
+
+function handleUpdateSong(sheet, id, updates) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return { success: false, error: 'Song not found' };
+  }
+
+  const idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let targetRowIndex = -1;
+  for (let i = 0; i < idValues.length; i++) {
+    if (String(idValues[i][0]) === String(id)) {
+      targetRowIndex = i + 2;
+      break;
+    }
+  }
+
+  if (targetRowIndex === -1) {
+    return { success: false, error: 'Song not found with id ' + id };
+  }
+
+  const currentRow = sheet.getRange(targetRowIndex, 1, 1, HEADERS.length).getValues()[0];
+
+  if (updates.orderIndex !== undefined) currentRow[1] = updates.orderIndex;
+  if (updates.title !== undefined) currentRow[2] = updates.title;
+  if (updates.artist !== undefined) currentRow[3] = updates.artist;
+  if (updates.originalKey !== undefined) currentRow[4] = updates.originalKey;
+  if (updates.playKey !== undefined) currentRow[5] = updates.playKey;
+  if (updates.tempoBpm !== undefined) currentRow[6] = updates.tempoBpm || '';
+  if (updates.versionUrl !== undefined) currentRow[7] = updates.versionUrl;
+  if (updates.chordUrl !== undefined) currentRow[8] = updates.chordUrl;
+  if (updates.chordContent !== undefined) currentRow[9] = updates.chordContent;
+  if (updates.notes !== undefined) currentRow[10] = updates.notes;
+  currentRow[11] = new Date().toISOString();
+
+  sheet.getRange(targetRowIndex, 1, 1, HEADERS.length).setValues([currentRow]);
+  return { success: true, updated: true };
+}
+
+function handleDeleteSong(sheet, id) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: true };
+
+  const idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < idValues.length; i++) {
+    if (String(idValues[i][0]) === String(id)) {
+      sheet.deleteRow(i + 2);
+      break;
+    }
+  }
+  return { success: true, deleted: true };
+}
+
+function handleReorderSongs(sheet, orderedIds) {
+  orderedIds = orderedIds || [];
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: true };
+
+  const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+  const map = {};
+  for (let i = 0; i < values.length; i++) {
+    map[String(values[i][0])] = values[i];
+  }
+
+  const updatedRows = [];
+  for (let j = 0; j < orderedIds.length; j++) {
+    const row = map[String(orderedIds[j])];
+    if (row) {
+      row[1] = j;
+      row[11] = new Date().toISOString();
+      updatedRows.push(row);
+      delete map[String(orderedIds[j])];
+    }
+  }
+
+  for (let remainingId in map) {
+    const remRow = map[remainingId];
+    remRow[1] = updatedRows.length;
+    remRow[11] = new Date().toISOString();
+    updatedRows.push(remRow);
+  }
+
+  if (updatedRows.length > 0) {
+    sheet.getRange(2, 1, updatedRows.length, HEADERS.length).setValues(updatedRows);
+  }
+
+  return { success: true, reordered: true };
+}
+
+/**
+ * Handles GET requests:
+ * Supports querying and lightweight mutations to avoid Google 302 echo redirect 404 bugs!
+ */
 function doGet(e) {
   try {
     const action = e && e.parameter ? e.parameter.action : 'get_songs';
+    const sheet = getOrCreateSheet();
 
     if (action === 'get_songs') {
-      const sheet = getOrCreateSheet();
-      const lastRow = sheet.getLastRow();
-      if (lastRow <= 1) {
-        return jsonResponse({ success: true, songs: [] });
-      }
+      return jsonResponse(handleGetSongs(sheet));
+    }
 
-      const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
-      const songs = values.map(function(row) {
-        return {
-          id: String(row[0] || ''),
-          orderIndex: Number(row[1] || 0),
-          title: String(row[2] || ''),
-          artist: String(row[3] || ''),
-          originalKey: String(row[4] || 'C'),
-          playKey: String(row[5] || 'C'),
-          tempoBpm: row[6] ? Number(row[6]) : null,
-          versionUrl: String(row[7] || ''),
-          chordUrl: String(row[8] || ''),
-          chordContent: String(row[9] || ''),
-          notes: String(row[10] || ''),
-          updatedAt: String(row[11] || new Date().toISOString())
-        };
-      }).filter(function(s) {
-        return s.id !== '';
-      });
+    if (action === 'add_song') {
+      const payload = JSON.parse(e.parameter.payload || '{}');
+      return jsonResponse(handleAddSong(sheet, payload.song || payload));
+    }
 
-      songs.sort(function(a, b) {
-        return a.orderIndex - b.orderIndex;
-      });
+    if (action === 'update_song') {
+      const payload = JSON.parse(e.parameter.payload || '{}');
+      return jsonResponse(handleUpdateSong(sheet, payload.id || e.parameter.id, payload.updates || payload));
+    }
 
-      return jsonResponse({ success: true, songs: songs });
+    if (action === 'delete_song') {
+      const id = e.parameter.id || (e.parameter.payload ? JSON.parse(e.parameter.payload).id : null);
+      return jsonResponse(handleDeleteSong(sheet, id));
+    }
+
+    if (action === 'reorder_songs') {
+      const payload = JSON.parse(e.parameter.payload || '{}');
+      return jsonResponse(handleReorderSongs(sheet, payload.orderedIds || []));
     }
 
     if (action === 'fetch_dochord') {
@@ -111,9 +257,7 @@ function doGet(e) {
       if (!url) {
         return jsonResponse({ success: false, error: 'Missing url parameter' });
       }
-
-      const chordContent = scrapeDochord(url);
-      return jsonResponse({ success: true, chordContent: chordContent });
+      return jsonResponse({ success: true, chordContent: scrapeDochord(url) });
     }
 
     return jsonResponse({ success: true, message: 'Concert Setlist GAS API is running' });
@@ -122,6 +266,9 @@ function doGet(e) {
   }
 }
 
+/**
+ * Handles POST requests as fallback
+ */
 function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
@@ -133,135 +280,16 @@ function doPost(e) {
     const sheet = getOrCreateSheet();
 
     if (action === 'add_song') {
-      const song = payload.song;
-      const lastRow = sheet.getLastRow();
-      const nextIndex = lastRow <= 1 ? 0 : lastRow - 1;
-
-      const newId = song.id || ('song-' + new Date().getTime() + '-' + Math.random().toString(36).substring(2, 7));
-      const rowData = [
-        newId,
-        song.orderIndex !== undefined ? song.orderIndex : nextIndex,
-        song.title || '',
-        song.artist || '',
-        song.originalKey || 'C',
-        song.playKey || song.originalKey || 'C',
-        song.tempoBpm || '',
-        song.versionUrl || '',
-        song.chordUrl || '',
-        song.chordContent || '',
-        song.notes || '',
-        new Date().toISOString()
-      ];
-
-      sheet.appendRow(rowData);
-      return jsonResponse({
-        success: true,
-        song: {
-          id: newId,
-          orderIndex: rowData[1],
-          title: rowData[2],
-          artist: rowData[3],
-          originalKey: rowData[4],
-          playKey: rowData[5],
-          tempoBpm: rowData[6] ? Number(rowData[6]) : null,
-          versionUrl: rowData[7],
-          chordUrl: rowData[8],
-          chordContent: rowData[9],
-          notes: rowData[10],
-          updatedAt: rowData[11]
-        }
-      });
+      return jsonResponse(handleAddSong(sheet, payload.song));
     }
-
     if (action === 'update_song') {
-      const id = payload.id;
-      const updates = payload.updates;
-      const lastRow = sheet.getLastRow();
-      if (lastRow <= 1) {
-        return jsonResponse({ success: false, error: 'Song not found' });
-      }
-
-      const idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      let targetRowIndex = -1;
-      for (let i = 0; i < idValues.length; i++) {
-        if (String(idValues[i][0]) === String(id)) {
-          targetRowIndex = i + 2;
-          break;
-        }
-      }
-
-      if (targetRowIndex === -1) {
-        return jsonResponse({ success: false, error: 'Song not found with id ' + id });
-      }
-
-      const currentRow = sheet.getRange(targetRowIndex, 1, 1, HEADERS.length).getValues()[0];
-
-      if (updates.orderIndex !== undefined) currentRow[1] = updates.orderIndex;
-      if (updates.title !== undefined) currentRow[2] = updates.title;
-      if (updates.artist !== undefined) currentRow[3] = updates.artist;
-      if (updates.originalKey !== undefined) currentRow[4] = updates.originalKey;
-      if (updates.playKey !== undefined) currentRow[5] = updates.playKey;
-      if (updates.tempoBpm !== undefined) currentRow[6] = updates.tempoBpm || '';
-      if (updates.versionUrl !== undefined) currentRow[7] = updates.versionUrl;
-      if (updates.chordUrl !== undefined) currentRow[8] = updates.chordUrl;
-      if (updates.chordContent !== undefined) currentRow[9] = updates.chordContent;
-      if (updates.notes !== undefined) currentRow[10] = updates.notes;
-      currentRow[11] = new Date().toISOString();
-
-      sheet.getRange(targetRowIndex, 1, 1, HEADERS.length).setValues([currentRow]);
-      return jsonResponse({ success: true, updated: true });
+      return jsonResponse(handleUpdateSong(sheet, payload.id, payload.updates));
     }
-
     if (action === 'delete_song') {
-      const id = payload.id;
-      const lastRow = sheet.getLastRow();
-      if (lastRow <= 1) return jsonResponse({ success: true });
-
-      const idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      for (let i = 0; i < idValues.length; i++) {
-        if (String(idValues[i][0]) === String(id)) {
-          sheet.deleteRow(i + 2);
-          break;
-        }
-      }
-      return jsonResponse({ success: true, deleted: true });
+      return jsonResponse(handleDeleteSong(sheet, payload.id));
     }
-
     if (action === 'reorder_songs') {
-      const orderedIds = payload.orderedIds || [];
-      const lastRow = sheet.getLastRow();
-      if (lastRow <= 1) return jsonResponse({ success: true });
-
-      const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
-      const map = {};
-      for (let i = 0; i < values.length; i++) {
-        map[String(values[i][0])] = values[i];
-      }
-
-      const updatedRows = [];
-      for (let j = 0; j < orderedIds.length; j++) {
-        const row = map[String(orderedIds[j])];
-        if (row) {
-          row[1] = j; // update orderIndex
-          row[11] = new Date().toISOString();
-          updatedRows.push(row);
-          delete map[String(orderedIds[j])];
-        }
-      }
-
-      // Append any remaining
-      for (let remainingId in map) {
-        const remRow = map[remainingId];
-        remRow[1] = updatedRows.length;
-        remRow[11] = new Date().toISOString();
-        updatedRows.push(remRow);
-      }
-
-      if (updatedRows.length > 0) {
-        sheet.getRange(2, 1, updatedRows.length, HEADERS.length).setValues(updatedRows);
-      }
-
-      return jsonResponse({ success: true, reordered: true });
+      return jsonResponse(handleReorderSongs(sheet, payload.orderedIds));
     }
 
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
@@ -270,9 +298,6 @@ function doPost(e) {
   }
 }
 
-/**
- * Scrapes DoChord page and strips HTML down to text/pre chords
- */
 function scrapeDochord(url) {
   try {
     const response = UrlFetchApp.fetch(url, {
@@ -283,14 +308,10 @@ function scrapeDochord(url) {
     });
 
     const html = response.getContentText();
-    
-    // Look for <pre> tag which Dochord uses to store chord diagrams & lyrics
     const preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
     if (preMatch && preMatch[1]) {
       let content = preMatch[1];
-      // Strip remaining HTML tags
       content = content.replace(/<[^>]+>/g, '');
-      // Decode HTML entities
       content = content.replace(/&amp;/g, '&')
                        .replace(/&lt;/g, '<')
                        .replace(/&gt;/g, '>')

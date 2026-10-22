@@ -40,7 +40,7 @@ describe('GasSongRepository', () => {
     expect(songs).toEqual(mockSongs);
   });
 
-  it('saves song via POST with action=add_song', async () => {
+  it('saves song via GET with action=add_song&payload=...', async () => {
     const newSong = {
       id: 's2',
       orderIndex: 1,
@@ -62,38 +62,34 @@ describe('GasSongRepository', () => {
     } as Response);
 
     const result = await repository.saveSong(newSong);
-    expect(globalThis.fetch).toHaveBeenCalledWith(apiUrl, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'add_song', song: newSong }),
+    const expectedPayload = encodeURIComponent(JSON.stringify({ song: newSong }));
+    expect(globalThis.fetch).toHaveBeenCalledWith(`${apiUrl}?action=add_song&payload=${expectedPayload}`, {
       redirect: 'follow'
     });
     expect(result).toEqual(newSong);
   });
 
-  it('deletes song via POST with action=delete_song', async () => {
+  it('deletes song via GET with action=delete_song&id=...', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ success: true, deleted: true })
     } as Response);
 
     await repository.deleteSong('s1');
-    expect(globalThis.fetch).toHaveBeenCalledWith(apiUrl, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'delete_song', id: 's1' }),
+    expect(globalThis.fetch).toHaveBeenCalledWith(`${apiUrl}?action=delete_song&id=s1`, {
       redirect: 'follow'
     });
   });
 
-  it('reorders songs via POST with action=reorder_songs', async () => {
+  it('reorders songs via GET with action=reorder_songs&payload=...', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ success: true, reordered: true })
     } as Response);
 
     await repository.reorderSongs(['s2', 's1']);
-    expect(globalThis.fetch).toHaveBeenCalledWith(apiUrl, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'reorder_songs', orderedIds: ['s2', 's1'] }),
+    const expectedPayload = encodeURIComponent(JSON.stringify({ orderedIds: ['s2', 's1'] }));
+    expect(globalThis.fetch).toHaveBeenCalledWith(`${apiUrl}?action=reorder_songs&payload=${expectedPayload}`, {
       redirect: 'follow'
     });
   });

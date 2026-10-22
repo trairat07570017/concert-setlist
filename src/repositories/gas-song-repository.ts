@@ -39,32 +39,17 @@ export class GasSongRepository implements SongRepository {
   }
 
   async saveSong(songInput: SongInput): Promise<Song> {
-    const payload = {
-      action: 'add_song',
-      song: songInput
-    };
-
-    const res = await this.fetchApi<{ success: boolean; song: Song }>(this.apiUrl, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-
+    const payload = JSON.stringify({ song: songInput });
+    const url = `${this.apiUrl}?action=add_song&payload=${encodeURIComponent(payload)}`;
+    const res = await this.fetchApi<{ success: boolean; song: Song }>(url);
     return res.song;
   }
 
   async updateSong(id: string, updates: Partial<SongInput>): Promise<Song> {
-    const payload = {
-      action: 'update_song',
-      id,
-      updates
-    };
+    const payload = JSON.stringify({ id, updates });
+    const url = `${this.apiUrl}?action=update_song&payload=${encodeURIComponent(payload)}`;
+    await this.fetchApi<{ success: boolean; updated: boolean }>(url);
 
-    await this.fetchApi<{ success: boolean; updated: boolean }>(this.apiUrl, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-
-    // Return the updated representation
     const songs = await this.getSongs();
     const found = songs.find((s) => s.id === id);
     if (!found) {
@@ -74,27 +59,14 @@ export class GasSongRepository implements SongRepository {
   }
 
   async deleteSong(id: string): Promise<void> {
-    const payload = {
-      action: 'delete_song',
-      id
-    };
-
-    await this.fetchApi<{ success: boolean; deleted: boolean }>(this.apiUrl, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
+    const url = `${this.apiUrl}?action=delete_song&id=${encodeURIComponent(id)}`;
+    await this.fetchApi<{ success: boolean; deleted: boolean }>(url);
   }
 
   async reorderSongs(orderedIds: string[]): Promise<void> {
-    const payload = {
-      action: 'reorder_songs',
-      orderedIds
-    };
-
-    await this.fetchApi<{ success: boolean; reordered: boolean }>(this.apiUrl, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
+    const payload = JSON.stringify({ orderedIds });
+    const url = `${this.apiUrl}?action=reorder_songs&payload=${encodeURIComponent(payload)}`;
+    await this.fetchApi<{ success: boolean; reordered: boolean }>(url);
   }
 
   async fetchChordFromDochord(url: string): Promise<string> {
