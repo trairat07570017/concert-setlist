@@ -1,14 +1,11 @@
-import { useState } from 'react';
 import { getSongRepository } from './repositories';
 import { SetlistView } from './modules/setlist/SetlistView';
-import { Song } from './domain/song';
 import { Disc3, Database } from 'lucide-react';
 
 const repository = getSongRepository();
 
 export function App() {
   const isGasConfigured = Boolean(import.meta.env.VITE_GAS_API_URL);
-  const [, setSelectedChordSong] = useState<Song | null>(null);
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col selection:bg-rose-500 selection:text-white">
@@ -44,7 +41,6 @@ export function App() {
       <main className="flex-1 pb-16">
         <SetlistView
           repository={repository}
-          onSelectChordSong={(song) => setSelectedChordSong(song)}
         />
       </main>
 

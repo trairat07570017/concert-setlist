@@ -4,25 +4,26 @@ import { SongRepository } from '../../repositories/song-repository';
 import { SongCard } from './SongCard';
 import { AddSongModal } from './AddSongModal';
 import { EditSongModal } from './EditSongModal';
+import { ChordViewerModal } from '../chord-viewer/ChordViewerModal';
 import { Button } from '../../components/ui/button';
 import { Modal } from '../../components/ui/modal';
 import { Plus, Music2, RefreshCw, ListMusic, AlertTriangle } from 'lucide-react';
 
 interface SetlistViewProps {
   repository: SongRepository;
-  onOpenStageMode?: () => void;
-  onSelectChordSong?: (song: Song) => void;
+  onOpenStageMode?: (songs: Song[]) => void;
 }
 
 export const SetlistView: React.FC<SetlistViewProps> = ({
   repository,
-  onSelectChordSong
+  onOpenStageMode
 }) => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [deletingSong, setDeletingSong] = useState<Song | null>(null);
+  const [activeChordSong, setActiveChordSong] = useState<Song | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Drag and drop state
@@ -55,6 +56,17 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
     await loadSongs();
   };
 
+  const handleUpdateSongChords = async (id: string, chordContent: string, chordUrl?: string) => {
+    await repository.updateSong(id, {
+      chordContent,
+      ...(chordUrl !== undefined ? { chordUrl } : {})
+    });
+    await loadSongs();
+    if (activeChordSong && activeChordSong.id === id) {
+      setActiveChordSong(prev => prev ? { ...prev, chordContent, chordUrl: chordUrl ?? prev.chordUrl } : null);
+    }
+  };
+
   const handleDeleteSong = async () => {
     if (!deletingSong) return;
     try {
@@ -72,18 +84,16 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
     const [moved] = newSongs.splice(currentIndex, 1);
     newSongs.splice(targetIndex, 0, moved);
 
-    // Optimistic UI update
     setSongs(newSongs);
 
     try {
       await repository.reorderSongs(newSongs.map((s) => s.id));
-    } catch (err: unknown) {
+    } catch {
       setError('ไม่สามารถบันทึกลำดับเพลงใหม่ได้');
       await loadSongs();
     }
   };
 
-  // Drag & drop handlers
   const handleDragStart = (_e: React.DragEvent, index: number) => {
     setDragItemIndex(index);
   };
@@ -128,6 +138,17 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenStageMode && songs.length > 0 && (
+            <Button
+              variant="stage"
+              size="sm"
+              onClick={() => onOpenStageMode(songs)}
+              className="text-xs font-bold"
+            >
+              🎤 Stage Mode
+            </Button>
+          )}
+
           <Button
             variant="ghost"
             size="sm"
@@ -200,7 +221,7 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
               onMoveDown={(idx) => handleMove(idx, idx + 1)}
               onEdit={(s) => setEditingSong(s)}
               onDelete={(s) => setDeletingSong(s)}
-              onOpenChord={(s) => onSelectChordSong && onSelectChordSong(s)}
+              onOpenChord={(s) => setActiveChordSong(s)}
             />
           ))}
         </div>
@@ -219,6 +240,15 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
         song={editingSong}
         onClose={() => setEditingSong(null)}
         onUpdateSong={handleUpdateSong}
+      />
+
+      {/* Chord Viewer Modal */}
+      <ChordViewerModal
+        isOpen={Boolean(activeChordSong)}
+        song={activeChordSong}
+        onClose={() => setActiveChordSong(null)}
+        repository={repository}
+        onUpdateSongChords={handleUpdateSongChords}
       />
 
       {/* Delete Confirmation Modal */}
