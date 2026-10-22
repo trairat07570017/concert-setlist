@@ -4,11 +4,11 @@
 
 **Blocked by:** 02 (Song Management & Reordering), 04 (DoChord Proxy & Transposable Chord Sheet Viewer)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Stage Mode toggle button in the header switching the app to a high-contrast dark theme optimized for low-light stages
-- [ ] Stage Mode song list view with large text showing current song, Performance Key, tempo BPM, and countdown/counter
-- [ ] Quick switcher between songs in Stage Mode without navigating away
-- [ ] Auto-scroll feature with adjustable scroll speed for reading lyrics/chords hands-free while playing instruments
-- [ ] Embedded YouTube/Audio player modal or inline card preview for song `versionUrl`
-- [ ] Fully responsive on mobile, iPad/tablet in landscape and portrait orientations
+- [x] Stage Mode toggle button in the header switching the app to a high-contrast dark theme optimized for low-light stages
+- [x] Stage Mode song list view with large text showing current song, Performance Key, tempo BPM, and countdown/counter
+- [x] Quick switcher between songs in Stage Mode without navigating away
+- [x] Auto-scroll feature with adjustable scroll speed for reading lyrics/chords hands-free while playing instruments
+- [x] Embedded YouTube/Audio player modal or inline card preview for song `versionUrl`
+- [x] Fully responsive on mobile, iPad/tablet in landscape and portrait orientations

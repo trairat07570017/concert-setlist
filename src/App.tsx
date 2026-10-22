@@ -1,11 +1,16 @@
+import { useState } from 'react';
 import { getSongRepository } from './repositories';
 import { SetlistView } from './modules/setlist/SetlistView';
-import { Disc3, Database } from 'lucide-react';
+import { StageModeView } from './modules/stage-mode/StageModeView';
+import { Song } from './domain/song';
+import { Disc3, Database, Mic2 } from 'lucide-react';
+import { Button } from './components/ui/button';
 
 const repository = getSongRepository();
 
 export function App() {
   const isGasConfigured = Boolean(import.meta.env.VITE_GAS_API_URL);
+  const [stageModeSongs, setStageModeSongs] = useState<Song[] | null>(null);
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col selection:bg-rose-500 selection:text-white">
@@ -28,12 +33,27 @@ export function App() {
           </div>
         </div>
 
-        {/* Database indicator */}
-        <div className="flex items-center gap-2">
+        {/* Database indicator & Quick Action */}
+        <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-medium text-zinc-400">
             <Database className={`w-3.5 h-3.5 ${isGasConfigured ? 'text-emerald-400' : 'text-amber-400'}`} />
             <span>{isGasConfigured ? 'Google Sheets' : 'Local Storage (Mock)'}</span>
           </div>
+
+          <Button
+            variant="stage"
+            size="sm"
+            onClick={async () => {
+              const songs = await repository.getSongs();
+              if (songs.length > 0) {
+                setStageModeSongs(songs);
+              }
+            }}
+            className="text-xs font-bold shadow-md shadow-amber-950/30"
+          >
+            <Mic2 className="w-3.5 h-3.5 mr-1" />
+            Stage Mode
+          </Button>
         </div>
       </header>
 
@@ -41,8 +61,17 @@ export function App() {
       <main className="flex-1 pb-16">
         <SetlistView
           repository={repository}
+          onOpenStageMode={(songs) => setStageModeSongs(songs)}
         />
       </main>
+
+      {/* Full-Screen Stage Mode View */}
+      {stageModeSongs && (
+        <StageModeView
+          songs={stageModeSongs}
+          onClose={() => setStageModeSongs(null)}
+        />
+      )}
 
       {/* Footer */}
       <footer className="border-t border-zinc-900 py-6 px-4 text-center text-xs text-zinc-400">

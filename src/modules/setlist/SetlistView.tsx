@@ -5,6 +5,7 @@ import { SongCard } from './SongCard';
 import { AddSongModal } from './AddSongModal';
 import { EditSongModal } from './EditSongModal';
 import { ChordViewerModal } from '../chord-viewer/ChordViewerModal';
+import { VideoPlayerModal } from '../player/VideoPlayerModal';
 import { Button } from '../../components/ui/button';
 import { Modal } from '../../components/ui/modal';
 import { Plus, Music2, RefreshCw, ListMusic, AlertTriangle } from 'lucide-react';
@@ -24,6 +25,7 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [deletingSong, setDeletingSong] = useState<Song | null>(null);
   const [activeChordSong, setActiveChordSong] = useState<Song | null>(null);
+  const [videoSong, setVideoSong] = useState<Song | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Drag and drop state
@@ -222,6 +224,7 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
               onEdit={(s) => setEditingSong(s)}
               onDelete={(s) => setDeletingSong(s)}
               onOpenChord={(s) => setActiveChordSong(s)}
+              onOpenVideo={(s) => setVideoSong(s)}
             />
           ))}
         </div>
@@ -249,6 +252,15 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
         onClose={() => setActiveChordSong(null)}
         repository={repository}
         onUpdateSongChords={handleUpdateSongChords}
+      />
+
+      {/* Video Player Modal */}
+      <VideoPlayerModal
+        isOpen={Boolean(videoSong)}
+        onClose={() => setVideoSong(null)}
+        title={videoSong?.title || ''}
+        artist={videoSong?.artist || ''}
+        url={videoSong?.versionUrl || ''}
       />
 
       {/* Delete Confirmation Modal */}

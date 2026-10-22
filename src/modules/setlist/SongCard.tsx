@@ -12,6 +12,7 @@ interface SongCardProps {
   onMoveUp?: (index: number) => void;
   onMoveDown?: (index: number) => void;
   onOpenChord?: (song: Song) => void;
+  onOpenVideo?: (song: Song) => void;
   isDragging?: boolean;
   onDragStart?: (e: React.DragEvent, index: number) => void;
   onDragEnter?: (e: React.DragEvent, index: number) => void;
@@ -27,6 +28,7 @@ export const SongCard: React.FC<SongCardProps> = ({
   onMoveUp,
   onMoveDown,
   onOpenChord,
+  onOpenVideo,
   isDragging,
   onDragStart,
   onDragEnter,
@@ -122,15 +124,14 @@ export const SongCard: React.FC<SongCardProps> = ({
           )}
 
           {song.versionUrl && (
-            <a
-              href={song.versionUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 transition-colors font-medium"
+            <button
+              type="button"
+              onClick={() => onOpenVideo ? onOpenVideo(song) : window.open(song.versionUrl, '_blank')}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 transition-colors font-medium cursor-pointer"
             >
               <Play className="w-3 h-3 fill-current" />
               เวอร์ชันซ้อม
-            </a>
+            </button>
           )}
 
           {(song.chordUrl || song.chordContent) && (
