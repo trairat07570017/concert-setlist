@@ -19,7 +19,9 @@ import {
   ExternalLink,
   Music,
   ClipboardPaste,
-  HelpCircle
+  HelpCircle,
+  Search,
+  Sparkles
 } from 'lucide-react';
 
 interface ChordViewerModalProps {
@@ -68,17 +70,17 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
   const handleFetchDochord = async () => {
     const targetUrl = chordUrlInput.trim() || song.chordUrl;
     if (!targetUrl) {
-      setStatusMessage('กรุณาระบุลิงก์เว็บ DoChord ก่อน');
+      setStatusMessage('กรุณาวางลิงก์เว็บคอร์ด (เช่น Chordzaa) ก่อนกดดึงคอร์ด');
       return;
     }
 
     try {
       setIsFetchingDochord(true);
-      setStatusMessage('กำลังดึงคอร์ดจาก DoChord...');
+      setStatusMessage('กำลังดึงและแปลงคอร์ดจากเว็บ...');
       const fetchedContent = await repository.fetchChordFromDochord(targetUrl);
       setChordText(fetchedContent);
       setIsEditing(false);
-      setStatusMessage('ดึงคอร์ดสำเร็จ! สามารถกดบันทึกเพื่อเก็บไว้ในชีต');
+      setStatusMessage('ดึงและแปลงคอร์ดสำเร็จเรียบร้อย! สามารถกด "บันทึก" เพื่อจัดเก็บลงใน Google Sheet');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'ดึงคอร์ดไม่สำเร็จ';
       setStatusMessage(msg);
@@ -145,41 +147,63 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
           </div>
         </div>
 
-        {/* DoChord Fetching Section */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 bg-zinc-900/60 border border-zinc-800/60 rounded-xl">
-          <div className="flex-1 relative">
-            <input
-              type="url"
-              value={chordUrlInput}
-              onChange={(e) => setChordUrlInput(e.target.value)}
-              placeholder="แปะลิงก์ DoChord เช่น https://www.dochord.com/12345/"
-              className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-700/60 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={isFetchingDochord}
-              onClick={handleFetchDochord}
-              className="flex-1 sm:flex-initial"
+        {/* Search Helper & Fetch Section */}
+        <div className="space-y-2.5 p-3.5 bg-zinc-900/70 border border-zinc-800/80 rounded-2xl">
+          {/* Quick Search Helper on Chordzaa */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-zinc-800/60">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-rose-400" />
+              <span className="text-xs font-semibold text-zinc-300">
+                ขั้นตอนที่ 1: ค้นหาคอร์ดบนเว็บ Chordzaa
+              </span>
+            </div>
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent('site:chordzaa.com ' + song.title + ' ' + (song.artist || ''))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 hover:text-rose-200 text-xs font-semibold border border-rose-500/30 transition-all hover:scale-[1.02]"
+              title="เปิดหน้าค้นหาเพลงนี้บนเว็บ Chordzaa"
             >
-              <Download className={`w-3.5 h-3.5 ${isFetchingDochord ? 'animate-bounce' : ''}`} />
-              {isFetchingDochord ? 'กำลังดึง...' : 'ดึงคอร์ดจาก DoChord'}
-            </Button>
-            {chordUrlInput && (
-              <a
-                href={chordUrlInput}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-rose-300 hover:text-white text-xs font-semibold transition-colors"
-                title="เปิดเว็บ DoChord เพื่อคัดลอกคอร์ด"
+              <Search className="w-3.5 h-3.5" />
+              <span>ค้นหาเพลง "{song.title}" บน Chordzaa ↗</span>
+            </a>
+          </div>
+
+          {/* Paste URL & Auto Fetch */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-0.5">
+            <div className="flex-1 relative">
+              <input
+                type="url"
+                value={chordUrlInput}
+                onChange={(e) => setChordUrlInput(e.target.value)}
+                placeholder="ขั้นตอนที่ 2: วางลิงก์ เช่น https://www.chordzaa.com/easy-chord/3101/"
+                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700/60 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="stage"
+                size="sm"
+                disabled={isFetchingDochord}
+                onClick={handleFetchDochord}
+                className="flex-1 sm:flex-initial"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>เปิดเว็บดูคอร์ด</span>
-              </a>
-            )}
+                <Download className={`w-3.5 h-3.5 ${isFetchingDochord ? 'animate-bounce' : ''}`} />
+                {isFetchingDochord ? 'กำลังดึง...' : 'ดึงคอร์ดอัตโนมัติ'}
+              </Button>
+              {chordUrlInput && (
+                <a
+                  href={chordUrlInput}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                  title="เปิดหน้าเว็บนี้"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
@@ -295,7 +319,7 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
               rows={16}
               value={chordText}
               onChange={(e) => setChordText(e.target.value)}
-              placeholder="พิมพ์หรือวางเนื้อเพลงและคอร์ดที่นี่... (เช่น คัดลอกจาก DoChord แล้วกด วางจากคลิปบอร์ด ด้านบน)"
+              placeholder="พิมพ์หรือวางเนื้อเพลงและคอร์ดที่นี่... (หรือค้นหาคอร์ดบนเว็บ Chordzaa แล้ววางลิงก์ด้านบนเพื่อดึงอัตโนมัติ)"
               className="w-full h-full bg-transparent text-zinc-100 font-mono text-sm leading-relaxed focus:outline-none resize-none"
             />
           ) : displayedChords ? (
@@ -310,42 +334,36 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
               <div className="space-y-1">
                 <p className="text-sm font-bold text-zinc-100">ยังไม่มีเนื้อเพลงและคอร์ดสำหรับเพลงนี้</p>
                 <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
-                  เนื่องจากเว็บ DoChord มีระบบป้องกันบอท (Cloudflare) บล็อกคำขอจากเซิร์ฟเวอร์ภายนอก ท่านสามารถนำคอร์ดมาใส่ได้ง่ายๆ ใน 2 ขั้นตอน:
+                  นำคอร์ดเพลงนี้เข้ามาได้ง่ายๆ ใน 2 ขั้นตอน (ระบบดึงและแกะคอร์ดให้อัตโนมัติ):
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
-                {chordUrlInput ? (
-                  <a
-                    href={chordUrlInput}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-950 transition-all hover:scale-[1.02]"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    1. เปิดเว็บ DoChord แล้วกด Copy
-                  </a>
-                ) : (
-                  <span className="text-xs text-zinc-500 italic">
-                    (ใส่ลิงก์เว็บ DoChord ด้านบนเพื่อเปิดหน้าเพลง)
-                  </span>
-                )}
+                <a
+                  href={`https://www.google.com/search?q=${encodeURIComponent('site:chordzaa.com ' + song.title + ' ' + (song.artist || ''))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-950 transition-all hover:scale-[1.02]"
+                >
+                  <Search className="w-4 h-4" />
+                  1. ค้นหาเพลง "{song.title}" บน Chordzaa ↗
+                </a>
 
                 <Button
                   type="button"
-                  variant="stage"
+                  variant="secondary"
                   size="sm"
                   onClick={handlePasteClipboard}
                   className="px-4 py-2"
                 >
                   <ClipboardPaste className="w-4 h-4" />
-                  2. วางคอร์ดจากคลิปบอร์ด
+                  หรือวางจากคลิปบอร์ด
                 </Button>
               </div>
 
               <div className="pt-2 text-[11px] text-zinc-500 flex items-center gap-1.5">
                 <HelpCircle className="w-3.5 h-3.5 text-zinc-400" />
-                <span>เมื่อวางคอร์ดแล้ว ระบบจะคำนวณทดคีย์ (Transpose) ไปยังคีย์ที่วงเล่นให้อัตโนมัติ</span>
+                <span>เมื่อเปิดเจอเพลงบน Chordzaa แล้ว เพียงคัดลอก URL ด้านบนมาวาง แล้วกดปุ่ม "ดึงคอร์ดอัตโนมัติ"</span>
               </div>
             </div>
           )}

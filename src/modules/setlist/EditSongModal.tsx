@@ -158,13 +158,13 @@ export const EditSongModal: React.FC<EditSongModalProps> = ({
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              ลิงก์คอร์ด (DoChord / Tab)
+              ลิงก์คอร์ด (Chordzaa / DoChord)
             </label>
             <input
               type="url"
               value={chordUrl}
               onChange={(e) => setChordUrl(e.target.value)}
-              placeholder="https://www.dochord.com/..."
+              placeholder="เช่น https://www.chordzaa.com/easy-chord/3101/"
               className="w-full px-3.5 py-2.5 bg-zinc-800/80 border border-zinc-700/60 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent text-sm"
             />
           </div>

@@ -252,12 +252,12 @@ function doGet(e) {
       return jsonResponse(handleReorderSongs(sheet, payload.orderedIds || []));
     }
 
-    if (action === 'fetch_dochord') {
+    if (action === 'fetch_dochord' || action === 'fetch_chord') {
       const url = e.parameter.url;
       if (!url) {
         return jsonResponse({ success: false, error: 'Missing url parameter' });
       }
-      const result = scrapeDochord(url);
+      const result = scrapeChordFromUrl(url);
       return jsonResponse(result);
     }
 
@@ -299,31 +299,140 @@ function doPost(e) {
   }
 }
 
-function scrapeDochord(url) {
+var THAI_COMBINING_REGEX = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g;
+
+function getVisualLength(str) {
+  return str.replace(THAI_COMBINING_REGEX, '').length;
+}
+
+function parseChordzaa(html) {
+  var liveMatch = html.match(/<div id="live">([\s\S]*?)<\/div>\s*<script>/i);
+  if (!liveMatch) {
+    var colMatch = html.match(/<div id="column_1">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/i);
+    if (!colMatch) return null;
+    liveMatch = [null, colMatch[1]];
+  }
+
+  var liveContent = liveMatch[1];
+
+  // Replace <span class="c2">CHORD</span> with [CHORD]
+  var text = liveContent.replace(/<span[^>]*class=["']c2["'][^>]*>(.*?)<\/span>/gi, '[$1]');
+
+  // Replace section headers <span class="c1">...</span> with plain text
+  text = text.replace(/<span[^>]*class=["']c1["'][^>]*>([\s\S]*?)<\/span>/gi, function(m, p1) {
+    return p1.replace(/&nbsp;/g, ' ');
+  });
+
+  // Replace <br /> and <br> with newlines
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+
+  // Remove other HTML tags
+  text = text.replace(/<[^>]+>/g, '');
+
+  // Clean HTML entities
+  text = text.replace(/&nbsp;/g, ' ')
+             .replace(/&amp;/g, '&')
+             .replace(/&lt;/g, '<')
+             .replace(/&gt;/g, '>')
+             .replace(/&#039;/g, "'")
+             .replace(/&quot;/g, '"');
+
+  text = text.replace(/\r/g, '');
+  var lines = text.split('\n');
+  var formattedLines = [];
+
+  for (var k = 0; k < lines.length; k++) {
+    var rawLine = lines[k];
+    var line = rawLine.trimEnd();
+    var trimmed = line.trim();
+    if (!trimmed) {
+      formattedLines.push('');
+      continue;
+    }
+
+    // Check if line is intro, outro, instru, or contains bars "|"
+    var isBarLine = trimmed.startsWith('|') || trimmed.includes(' : |') || trimmed.includes(': |');
+    if (!line.includes('[') || isBarLine) {
+      formattedLines.push(line.replace(/\[([A-G][^\]]*)\]/g, '$1'));
+      continue;
+    }
+
+    // Convert inline [CHORD] to 2 lines: chordLine above, lyricLine below
+    var chordLine = '';
+    var lyricLine = '';
+    var visualLen = 0;
+    var i = 0;
+
+    while (i < line.length) {
+      if (line[i] === '[' && line.indexOf(']', i) !== -1) {
+        var closeIdx = line.indexOf(']', i);
+        var chord = line.substring(i + 1, closeIdx);
+        var chordVisualLen = getVisualLength(chordLine);
+
+        if (chordVisualLen < visualLen) {
+          while (getVisualLength(chordLine) < visualLen) {
+            chordLine += ' ';
+          }
+        } else if (chordVisualLen > visualLen && chordLine.length > 0) {
+          chordLine += ' ';
+        }
+        chordLine += chord;
+        i = closeIdx + 1;
+      } else {
+        var ch = line[i];
+        lyricLine += ch;
+        if (!THAI_COMBINING_REGEX.test(ch)) {
+          visualLen++;
+        }
+        THAI_COMBINING_REGEX.lastIndex = 0;
+        i++;
+      }
+    }
+
+    if (chordLine.trim().length > 0) {
+      formattedLines.push(chordLine);
+    }
+    if (lyricLine.trim().length > 0) {
+      formattedLines.push(lyricLine);
+    }
+  }
+
+  return formattedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function scrapeChordFromUrl(url) {
   try {
-    const response = UrlFetchApp.fetch(url, {
+    var response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
 
-    const code = response.getResponseCode();
-    const html = response.getContentText();
+    var code = response.getResponseCode();
+    var html = response.getContentText();
 
-    // Check Cloudflare or bot challenge protection
+    // 1. Check if it is Chordzaa (handles both /easy-chord/ and standard URLs)
+    if (url.indexOf('chordzaa.com') !== -1) {
+      var chordzaaContent = parseChordzaa(html);
+      if (chordzaaContent && chordzaaContent.length > 20) {
+        return { success: true, chordContent: chordzaaContent };
+      }
+    }
+
+    // 2. Check Cloudflare or bot challenge protection (DoChord)
     if (code === 403 || html.indexOf('challenges.cloudflare.com') !== -1 || html.indexOf('Just a moment...') !== -1) {
       return {
         success: false,
         isBlocked: true,
-        error: 'เว็บ DoChord มีระบบป้องกันบอท (Cloudflare) บล็อกเซิร์ฟเวอร์ภายนอก กรุณากดปุ่ม ↗ เพื่อเปิดหน้าเว็บ แล้วคัดลอกคอร์ดมาวางด้วยตนเอง'
+        error: 'เว็บนี้มีระบบป้องกันบอท (Cloudflare) แนะนำให้ใช้ลิงก์จากเว็บ Chordzaa (chordzaa.com) หรือเปิดหน้าเว็บแล้วคัดลอกคอร์ดมาวางครับ'
       };
     }
 
-    // Try finding chords in <pre> tag
-    const preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+    // 3. Try finding chords in <pre> tag (DoChord or standard sites)
+    var preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
     if (preMatch && preMatch[1]) {
-      let content = preMatch[1];
+      var content = preMatch[1];
       content = content.replace(/<[^>]+>/g, '');
       content = content.replace(/&amp;/g, '&')
                        .replace(/&lt;/g, '<')
@@ -333,23 +442,23 @@ function scrapeDochord(url) {
       return { success: true, chordContent: content.trim() };
     }
 
-    // Fallback: check <div class="entry-content"> or similar chord containers
-    const divMatch = html.match(/<div[^>]*class=["'][^"']*(?:chord_content|entry-content|content-chord)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    // 4. Fallback: check <div class="entry-content"> or similar chord containers
+    var divMatch = html.match(/<div[^>]*class=["'][^"']*(?:chord_content|entry-content|content-chord)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
     if (divMatch && divMatch[1]) {
-      let content = divMatch[1].replace(/<br\s*\/?>/gi, '\n');
-      content = content.replace(/<[^>]+>/g, '');
-      content = content.replace(/&amp;/g, '&')
-                       .replace(/&lt;/g, '<')
-                       .replace(/&gt;/g, '>')
-                       .replace(/&quot;/g, '"')
-                       .replace(/&#039;/g, "'");
-      return { success: true, chordContent: content.trim() };
+      var content2 = divMatch[1].replace(/<br\s*\/?>/gi, '\n');
+      content2 = content2.replace(/<[^>]+>/g, '');
+      content2 = content2.replace(/&amp;/g, '&')
+                         .replace(/&lt;/g, '<')
+                         .replace(/&gt;/g, '>')
+                         .replace(/&quot;/g, '"')
+                         .replace(/&#039;/g, "'");
+      return { success: true, chordContent: content2.trim() };
     }
 
     return {
       success: false,
       isBlocked: false,
-      error: 'ไม่สามารถสกัดคอร์ดจากหน้าเว็บได้ กรุณาคัดลอกคอร์ดมาวางด้วยตนเอง'
+      error: 'ไม่สามารถสกัดคอร์ดจากหน้าเว็บนี้ได้ แนะนำให้ใส่ลิงก์จาก Chordzaa หรือวางคอร์ดด้วยตนเอง'
     };
   } catch (err) {
     return {
