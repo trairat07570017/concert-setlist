@@ -15,7 +15,7 @@ export function App() {
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col selection:bg-rose-500 selection:text-white">
       {/* Global Navigation Header */}
-      <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80 px-4 sm:px-8 py-3.5 pt-safe flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-rose-950/50">
             <Disc3 className="w-5 h-5 animate-spin-slow" />
@@ -74,7 +74,7 @@ export function App() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-zinc-900 py-6 px-4 text-center text-xs text-zinc-400">
+      <footer className="border-t border-zinc-900 py-6 pb-safe px-4 text-center text-xs text-zinc-400">
         <p>Concert Setlist • Built for seamless rehearsals & live stage performances</p>
         <p className="mt-1 text-zinc-400">Deployable to GitHub Pages & backed by Google Sheets via Google Apps Script</p>
       </footer>

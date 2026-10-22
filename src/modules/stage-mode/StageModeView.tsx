@@ -115,9 +115,9 @@ export const StageModeView: React.FC<StageModeViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black text-white flex flex-col select-none overflow-hidden font-sans">
+    <div className="fixed inset-0 z-50 bg-black text-white flex flex-col select-none overflow-hidden font-sans h-dvh">
       {/* Top Stage Bar */}
-      <header className="flex-shrink-0 h-16 border-b border-zinc-850 px-4 sm:px-6 flex items-center justify-between bg-zinc-950">
+      <header className="flex-shrink-0 h-16 border-b border-zinc-850 px-4 sm:px-6 flex items-center justify-between bg-zinc-950 pt-safe">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsSongListOpen(!isSongListOpen)}
