@@ -7,6 +7,8 @@
  *  - Who has access: "Anyone"
  */
 
+const SPREADSHEET_ID = '17jR8HlBPi4AL6o6gmvIR_f1GkRthVCY79hR04N2bdwA';
+
 const HEADERS = [
   'id',
   'order_index',
@@ -23,7 +25,28 @@ const HEADERS = [
 ];
 
 function getOrCreateSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ss = null;
+
+  if (SPREADSHEET_ID && SPREADSHEET_ID.trim() !== '') {
+    try {
+      ss = SpreadsheetApp.openById(SPREADSHEET_ID.trim());
+    } catch (e) {
+      console.warn('Could not open by ID:', e);
+    }
+  }
+
+  if (!ss) {
+    try {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+    } catch (e) {
+      console.warn('No active spreadsheet');
+    }
+  }
+
+  if (!ss) {
+    throw new Error('ไม่พบ Google Sheet: กรุณาตรวจสอบสิทธิ์การเข้าถึงหรือ SPREADSHEET_ID');
+  }
+
   let sheet = ss.getSheetByName('Setlist');
   if (!sheet) {
     sheet = ss.getSheets()[0];
