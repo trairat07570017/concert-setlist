@@ -57,15 +57,40 @@ describe('MockSongRepository', () => {
     expect(reloaded[0].playKey).toBe('Em');
   });
 
-  it('deletes a song by id', async () => {
+  it('deletes a song by id and re-indexes remaining songs sequentially', async () => {
     const initialSongs = await repository.getSongs();
-    const targetId = initialSongs[0].id;
+    expect(initialSongs.length).toBeGreaterThanOrEqual(3);
+    const middleSongId = initialSongs[1].id;
 
-    await repository.deleteSong(targetId);
+    await repository.deleteSong(middleSongId);
 
     const reloaded = await repository.getSongs();
     expect(reloaded.length).toBe(initialSongs.length - 1);
-    expect(reloaded.find(s => s.id === targetId)).toBeUndefined();
+    expect(reloaded.find(s => s.id === middleSongId)).toBeUndefined();
+    // Verify contiguous zero-based indices
+    reloaded.forEach((song, idx) => {
+      expect(song.orderIndex).toBe(idx);
+    });
+  });
+
+  it('moves a song up and down correctly', async () => {
+    const songs = await repository.getSongs();
+    const [song0, song1, song2] = songs;
+
+    // Swap index 1 with index 0 (move up)
+    await repository.reorderSongs([song1.id, song0.id, song2.id]);
+    const afterMoveUp = await repository.getSongs();
+    expect(afterMoveUp[0].id).toBe(song1.id);
+    expect(afterMoveUp[1].id).toBe(song0.id);
+    expect(afterMoveUp[0].orderIndex).toBe(0);
+    expect(afterMoveUp[1].orderIndex).toBe(1);
+
+    // Swap index 0 with index 2 (move down)
+    await repository.reorderSongs([song0.id, song2.id, song1.id]);
+    const afterMoveDown = await repository.getSongs();
+    expect(afterMoveDown[0].id).toBe(song0.id);
+    expect(afterMoveDown[1].id).toBe(song2.id);
+    expect(afterMoveDown[2].id).toBe(song1.id);
   });
 
   it('reorders songs based on given id sequence', async () => {

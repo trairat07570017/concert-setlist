@@ -3,8 +3,10 @@ import { Song, SongInput } from '../../domain/song';
 import { SongRepository } from '../../repositories/song-repository';
 import { SongCard } from './SongCard';
 import { AddSongModal } from './AddSongModal';
+import { EditSongModal } from './EditSongModal';
 import { Button } from '../../components/ui/button';
-import { Plus, Music2, RefreshCw, ListMusic } from 'lucide-react';
+import { Modal } from '../../components/ui/modal';
+import { Plus, Music2, RefreshCw, ListMusic, AlertTriangle } from 'lucide-react';
 
 interface SetlistViewProps {
   repository: SongRepository;
@@ -19,7 +21,12 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [deletingSong, setDeletingSong] = useState<Song | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Drag and drop state
+  const [dragItemIndex, setDragItemIndex] = useState<number | null>(null);
 
   const loadSongs = async () => {
     try {
@@ -43,6 +50,62 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
     await loadSongs();
   };
 
+  const handleUpdateSong = async (id: string, updates: Partial<SongInput>) => {
+    await repository.updateSong(id, updates);
+    await loadSongs();
+  };
+
+  const handleDeleteSong = async () => {
+    if (!deletingSong) return;
+    try {
+      await repository.deleteSong(deletingSong.id);
+      setDeletingSong(null);
+      await loadSongs();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการลบเพลง');
+    }
+  };
+
+  const handleMove = async (currentIndex: number, targetIndex: number) => {
+    if (targetIndex < 0 || targetIndex >= songs.length) return;
+    const newSongs = [...songs];
+    const [moved] = newSongs.splice(currentIndex, 1);
+    newSongs.splice(targetIndex, 0, moved);
+
+    // Optimistic UI update
+    setSongs(newSongs);
+
+    try {
+      await repository.reorderSongs(newSongs.map((s) => s.id));
+    } catch (err: unknown) {
+      setError('ไม่สามารถบันทึกลำดับเพลงใหม่ได้');
+      await loadSongs();
+    }
+  };
+
+  // Drag & drop handlers
+  const handleDragStart = (_e: React.DragEvent, index: number) => {
+    setDragItemIndex(index);
+  };
+
+  const handleDragEnter = (_e: React.DragEvent, targetIndex: number) => {
+    if (dragItemIndex === null || dragItemIndex === targetIndex) return;
+    const newSongs = [...songs];
+    const [dragged] = newSongs.splice(dragItemIndex, 1);
+    newSongs.splice(targetIndex, 0, dragged);
+    setDragItemIndex(targetIndex);
+    setSongs(newSongs);
+  };
+
+  const handleDragEnd = async () => {
+    setDragItemIndex(null);
+    try {
+      await repository.reorderSongs(songs.map((s) => s.id));
+    } catch {
+      await loadSongs();
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Top action bar */}
@@ -58,7 +121,9 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
                 {songs.length} เพลง
               </span>
             </h2>
-            <p className="text-xs text-zinc-400">ลิสต์เพลงสำหรับซ้อมและเล่นบนเวที พร้อมระบุเวอร์ชันและคีย์</p>
+            <p className="text-xs text-zinc-400">
+              ลากสลับลำดับเพลงได้ • ระบุคีย์และเวอร์ชันซ้อมให้คนในวงรู้ทันที
+            </p>
           </div>
         </div>
 
@@ -126,6 +191,15 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
               key={song.id}
               song={song}
               index={index}
+              totalSongs={songs.length}
+              isDragging={dragItemIndex === index}
+              onDragStart={handleDragStart}
+              onDragEnter={handleDragEnter}
+              onDragEnd={handleDragEnd}
+              onMoveUp={(idx) => handleMove(idx, idx - 1)}
+              onMoveDown={(idx) => handleMove(idx, idx + 1)}
+              onEdit={(s) => setEditingSong(s)}
+              onDelete={(s) => setDeletingSong(s)}
               onOpenChord={(s) => onSelectChordSong && onSelectChordSong(s)}
             />
           ))}
@@ -138,6 +212,39 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
         onClose={() => setIsAddModalOpen(false)}
         onAddSong={handleAddSong}
       />
+
+      {/* Edit song modal */}
+      <EditSongModal
+        isOpen={Boolean(editingSong)}
+        song={editingSong}
+        onClose={() => setEditingSong(null)}
+        onUpdateSong={handleUpdateSong}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={Boolean(deletingSong)}
+        onClose={() => setDeletingSong(null)}
+        title="ยืนยันการลบเพลง"
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
+            <p className="text-sm">
+              คุณต้องการลบเพลง <span className="font-bold text-white">"{deletingSong?.title}"</span> ออกจาก Setlist หรือไม่?
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setDeletingSong(null)}>
+              ยกเลิก
+            </Button>
+            <Button variant="danger" onClick={handleDeleteSong}>
+              ลบเพลงนี้
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
