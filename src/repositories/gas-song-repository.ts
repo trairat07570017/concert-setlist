@@ -71,7 +71,10 @@ export class GasSongRepository implements SongRepository {
 
   async fetchChordFromDochord(url: string): Promise<string> {
     const fetchUrl = `${this.apiUrl}?action=fetch_dochord&url=${encodeURIComponent(url)}`;
-    const res = await this.fetchApi<{ success: boolean; chordContent: string }>(fetchUrl);
+    const res = await this.fetchApi<{ success: boolean; chordContent?: string; error?: string }>(fetchUrl);
+    if (!res.success) {
+      throw new Error(res.error || 'ไม่สามารถดึงคอร์ดจากหน้าเว็บได้');
+    }
     return res.chordContent || '';
   }
 }

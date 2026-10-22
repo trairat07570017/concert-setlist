@@ -257,7 +257,8 @@ function doGet(e) {
       if (!url) {
         return jsonResponse({ success: false, error: 'Missing url parameter' });
       }
-      return jsonResponse({ success: true, chordContent: scrapeDochord(url) });
+      const result = scrapeDochord(url);
+      return jsonResponse(result);
     }
 
     return jsonResponse({ success: true, message: 'Concert Setlist GAS API is running' });
@@ -303,11 +304,23 @@ function scrapeDochord(url) {
     const response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
 
+    const code = response.getResponseCode();
     const html = response.getContentText();
+
+    // Check Cloudflare or bot challenge protection
+    if (code === 403 || html.indexOf('challenges.cloudflare.com') !== -1 || html.indexOf('Just a moment...') !== -1) {
+      return {
+        success: false,
+        isBlocked: true,
+        error: 'เว็บ DoChord มีระบบป้องกันบอท (Cloudflare) บล็อกเซิร์ฟเวอร์ภายนอก กรุณากดปุ่ม ↗ เพื่อเปิดหน้าเว็บ แล้วคัดลอกคอร์ดมาวางด้วยตนเอง'
+      };
+    }
+
+    // Try finding chords in <pre> tag
     const preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
     if (preMatch && preMatch[1]) {
       let content = preMatch[1];
@@ -317,11 +330,31 @@ function scrapeDochord(url) {
                        .replace(/&gt;/g, '>')
                        .replace(/&quot;/g, '"')
                        .replace(/&#039;/g, "'");
-      return content.trim();
+      return { success: true, chordContent: content.trim() };
     }
 
-    return 'ไม่สามารถสกัดคอร์ดจากหน้าเว็บได้ กรุณาคัดลอกคอร์ดมาวางด้วยตนเอง';
+    // Fallback: check <div class="entry-content"> or similar chord containers
+    const divMatch = html.match(/<div[^>]*class=["'][^"']*(?:chord_content|entry-content|content-chord)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    if (divMatch && divMatch[1]) {
+      let content = divMatch[1].replace(/<br\s*\/?>/gi, '\n');
+      content = content.replace(/<[^>]+>/g, '');
+      content = content.replace(/&amp;/g, '&')
+                       .replace(/&lt;/g, '<')
+                       .replace(/&gt;/g, '>')
+                       .replace(/&quot;/g, '"')
+                       .replace(/&#039;/g, "'");
+      return { success: true, chordContent: content.trim() };
+    }
+
+    return {
+      success: false,
+      isBlocked: false,
+      error: 'ไม่สามารถสกัดคอร์ดจากหน้าเว็บได้ กรุณาคัดลอกคอร์ดมาวางด้วยตนเอง'
+    };
   } catch (err) {
-    return 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก DoChord: ' + err.toString();
+    return {
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการดึงข้อมูลจากเว็บ: ' + err.toString()
+    };
   }
 }

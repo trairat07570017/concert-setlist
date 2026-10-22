@@ -17,7 +17,9 @@ import {
   Eye,
   Save,
   ExternalLink,
-  Music
+  Music,
+  ClipboardPaste,
+  HelpCircle
 } from 'lucide-react';
 
 interface ChordViewerModalProps {
@@ -78,9 +80,27 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
       setIsEditing(false);
       setStatusMessage('ดึงคอร์ดสำเร็จ! สามารถกดบันทึกเพื่อเก็บไว้ในชีต');
     } catch (err: unknown) {
-      setStatusMessage(err instanceof Error ? err.message : 'ดึงคอร์ดไม่สำเร็จ');
+      const msg = err instanceof Error ? err.message : 'ดึงคอร์ดไม่สำเร็จ';
+      setStatusMessage(msg);
+      setIsEditing(true);
     } finally {
       setIsFetchingDochord(false);
+    }
+  };
+
+  const handlePasteClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        setChordText(text.trim());
+        setIsEditing(true);
+        setStatusMessage('วางคอร์ดจากคลิปบอร์ดเรียบร้อยแล้ว อย่าลืมกด "บันทึก" เพื่อเก็บเข้าชีต');
+      } else {
+        setStatusMessage('คลิปบอร์ดว่างเปล่า กรุณาคัดลอกคอร์ดจากหน้าเว็บมาก่อน');
+      }
+    } catch {
+      setStatusMessage('เบราว์เซอร์ไม่อนุญาตให้อ่านคลิปบอร์ดอัตโนมัติ กรุณากดคลิกในกล่องข้อความแล้วกด Ctrl+V (หรือแตะค้างแล้วกดวาง)');
+      setIsEditing(true);
     }
   };
 
@@ -153,17 +173,18 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
                 href={chordUrlInput}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-                title="เปิดเว็บ DoChord"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-rose-300 hover:text-white text-xs font-semibold transition-colors"
+                title="เปิดเว็บ DoChord เพื่อคัดลอกคอร์ด"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>เปิดเว็บดูคอร์ด</span>
               </a>
             )}
           </div>
         </div>
 
         {statusMessage && (
-          <div className="px-3.5 py-2 rounded-xl bg-zinc-800/80 border border-zinc-700/60 text-xs text-amber-300">
+          <div className="px-3.5 py-2.5 rounded-xl bg-amber-950/40 border border-amber-600/40 text-xs text-amber-200 leading-relaxed">
             {statusMessage}
           </div>
         )}
@@ -218,8 +239,21 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
             </Button>
           </div>
 
-          {/* Mode switch (Viewer vs Edit) */}
+          {/* Mode switch (Viewer vs Edit) and Actions */}
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handlePasteClipboard}
+              title="วางคอร์ดจากคลิปบอร์ด"
+              className="text-xs font-medium"
+            >
+              <ClipboardPaste className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">วางจากคลิปบอร์ด</span>
+              <span className="sm:hidden">วาง</span>
+            </Button>
+
             <Button
               type="button"
               variant={isEditing ? 'primary' : 'secondary'}
@@ -261,7 +295,7 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
               rows={16}
               value={chordText}
               onChange={(e) => setChordText(e.target.value)}
-              placeholder="พิมพ์หรือวางเนื้อเพลงและคอร์ดที่นี่..."
+              placeholder="พิมพ์หรือวางเนื้อเพลงและคอร์ดที่นี่... (เช่น คัดลอกจาก DoChord แล้วกด วางจากคลิปบอร์ด ด้านบน)"
               className="w-full h-full bg-transparent text-zinc-100 font-mono text-sm leading-relaxed focus:outline-none resize-none"
             />
           ) : displayedChords ? (
@@ -269,9 +303,50 @@ export const ChordViewerModal: React.FC<ChordViewerModalProps> = ({
               {displayedChords}
             </pre>
           ) : (
-            <div className="flex flex-col items-center justify-center h-48 text-zinc-500 space-y-2">
-              <p className="text-sm">ยังไม่มีคอร์ดเพลงนี้</p>
-              <p className="text-xs text-zinc-400">ใส่ลิงก์ DoChord ด้านบนแล้วกดดึงคอร์ด หรือกดแก้ไขคอร์ดเพื่อวางด้วยตนเอง</p>
+            <div className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-rose-500">
+                <Music className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-zinc-100">ยังไม่มีเนื้อเพลงและคอร์ดสำหรับเพลงนี้</p>
+                <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+                  เนื่องจากเว็บ DoChord มีระบบป้องกันบอท (Cloudflare) บล็อกคำขอจากเซิร์ฟเวอร์ภายนอก ท่านสามารถนำคอร์ดมาใส่ได้ง่ายๆ ใน 2 ขั้นตอน:
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+                {chordUrlInput ? (
+                  <a
+                    href={chordUrlInput}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-950 transition-all hover:scale-[1.02]"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    1. เปิดเว็บ DoChord แล้วกด Copy
+                  </a>
+                ) : (
+                  <span className="text-xs text-zinc-500 italic">
+                    (ใส่ลิงก์เว็บ DoChord ด้านบนเพื่อเปิดหน้าเพลง)
+                  </span>
+                )}
+
+                <Button
+                  type="button"
+                  variant="stage"
+                  size="sm"
+                  onClick={handlePasteClipboard}
+                  className="px-4 py-2"
+                >
+                  <ClipboardPaste className="w-4 h-4" />
+                  2. วางคอร์ดจากคลิปบอร์ด
+                </Button>
+              </div>
+
+              <div className="pt-2 text-[11px] text-zinc-500 flex items-center gap-1.5">
+                <HelpCircle className="w-3.5 h-3.5 text-zinc-400" />
+                <span>เมื่อวางคอร์ดแล้ว ระบบจะคำนวณทดคีย์ (Transpose) ไปยังคีย์ที่วงเล่นให้อัตโนมัติ</span>
+              </div>
             </div>
           )}
         </div>
