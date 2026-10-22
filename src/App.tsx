@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { getSongRepository } from './repositories';
 import { SetlistView } from './modules/setlist/SetlistView';
 import { StageModeView } from './modules/stage-mode/StageModeView';
+import { StageLaunchModal } from './modules/stage-mode/StageLaunchModal';
 import { Song } from './domain/song';
 import { Disc3, Database, Mic2 } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -10,7 +11,30 @@ const repository = getSongRepository();
 
 export function App() {
   const isGasConfigured = Boolean(import.meta.env.VITE_GAS_API_URL);
+  const [availableSongs, setAvailableSongs] = useState<Song[]>([]);
+  const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
   const [stageModeSongs, setStageModeSongs] = useState<Song[] | null>(null);
+
+  const handleOpenStageMode = useCallback((songs?: Song[]) => {
+    const targetSongs = songs && songs.length > 0 ? songs : availableSongs;
+    if (targetSongs.length > 0) {
+      setAvailableSongs(targetSongs);
+      setIsLaunchModalOpen(true);
+    } else {
+      // Fallback if not yet loaded in state
+      repository.getSongs().then((s) => {
+        if (s.length > 0) {
+          setAvailableSongs(s);
+          setIsLaunchModalOpen(true);
+        }
+      });
+    }
+  }, [availableSongs]);
+
+  const handleConfirmLaunch = () => {
+    setIsLaunchModalOpen(false);
+    setStageModeSongs(availableSongs);
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col selection:bg-rose-500 selection:text-white">
@@ -43,12 +67,7 @@ export function App() {
           <Button
             variant="stage"
             size="sm"
-            onClick={async () => {
-              const songs = await repository.getSongs();
-              if (songs.length > 0) {
-                setStageModeSongs(songs);
-              }
-            }}
+            onClick={() => handleOpenStageMode()}
             className="text-xs font-bold shadow-md shadow-amber-950/30"
           >
             <Mic2 className="w-3.5 h-3.5 mr-1" />
@@ -61,9 +80,18 @@ export function App() {
       <main className="flex-1 pb-16">
         <SetlistView
           repository={repository}
-          onOpenStageMode={(songs) => setStageModeSongs(songs)}
+          onSongsChange={setAvailableSongs}
+          onOpenStageMode={(songs) => handleOpenStageMode(songs)}
         />
       </main>
+
+      {/* Ready To Rock Stage Launch Modal */}
+      <StageLaunchModal
+        isOpen={isLaunchModalOpen}
+        songs={availableSongs}
+        onClose={() => setIsLaunchModalOpen(false)}
+        onConfirmLaunch={handleConfirmLaunch}
+      />
 
       {/* Full-Screen Stage Mode View */}
       {stageModeSongs && (

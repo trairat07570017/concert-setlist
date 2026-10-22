@@ -13,11 +13,13 @@ import { Plus, Music2, RefreshCw, ListMusic, AlertTriangle } from 'lucide-react'
 interface SetlistViewProps {
   repository: SongRepository;
   onOpenStageMode?: (songs: Song[]) => void;
+  onSongsChange?: (songs: Song[]) => void;
 }
 
 export const SetlistView: React.FC<SetlistViewProps> = ({
   repository,
-  onOpenStageMode
+  onOpenStageMode,
+  onSongsChange
 }) => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,6 +29,11 @@ export const SetlistView: React.FC<SetlistViewProps> = ({
   const [activeChordSong, setActiveChordSong] = useState<Song | null>(null);
   const [videoSong, setVideoSong] = useState<Song | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync loaded songs up to parent
+  useEffect(() => {
+    onSongsChange?.(songs);
+  }, [songs, onSongsChange]);
 
   // Drag and drop state
   const [dragItemIndex, setDragItemIndex] = useState<number | null>(null);
